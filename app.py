@@ -37,6 +37,17 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
+with st.expander("ℹ️  About this data", expanded=False):
+    st.markdown(
+        "**Stats sourced from MaxPreps official season reports.** "
+        "All career totals and rate statistics (AVG, OBP, SLG, OPS, ERA, WHIP, etc.) "
+        "are recalculated from raw season data. "
+        "Stolen base totals were not recorded prior to the 2018-19 season.\n\n"
+        "**Note on the 2019-20 season:** This season was cut short by COVID-19 and "
+        "consisted of only 8 games. Stats from that year reflect a very limited sample "
+        "and are not directly comparable to full seasons."
+    )
+
 # ── Load data from Excel ───────────────────────────────────────────────────────
 EXCEL = "Franklin_Baseball_Stats.xlsx"
 
@@ -282,5 +293,9 @@ with tab4:
 
 # ── Footer ────────────────────────────────────────────────────────────────────
 st.markdown("---")
-st.caption("Data: 2016-17 through 2025-26  ·  Built with Streamlit  ·  "
-           "Benjamin Franklin High School, Queen Creek AZ")
+st.caption(
+    "Stats sourced from MaxPreps official season reports  ·  "
+    "Career totals and rate stats recalculated from raw season data  ·  "
+    "2019-20 season COVID-shortened (8 games)  ·  "
+    "Benjamin Franklin High School, Queen Creek AZ"
+)
