@@ -353,15 +353,185 @@ with sport_tab_bball_girls:
     """, unsafe_allow_html=True)
 
 # ═════════════════════════════════════════════════════════════════════════════
-# 🏈  FOOTBALL  (coming soon)
+# 🏈  FOOTBALL  (fully live)
 # ═════════════════════════════════════════════════════════════════════════════
 with sport_tab_football:
-    st.markdown("""
-    <div class="coming-soon">
-      <h2>🏈 Football</h2>
-      <p>Stats coming soon — data is being compiled now.</p>
-    </div>
-    """, unsafe_allow_html=True)
+
+    FB_EXCEL = "Franklin_Football_Stats.xlsx"
+
+    @st.cache_data
+    def load_football():
+        xl = pd.ExcelFile(FB_EXCEL)
+        return {name: pd.read_excel(xl, name, header=2) for name in xl.sheet_names}
+
+    try:
+        fb = load_football()
+        football_ok = True
+    except Exception as e:
+        st.error(f"Could not load football data: {e}")
+        football_ok = False
+
+    if football_ok:
+
+        with st.expander("ℹ️  About this data", expanded=False):
+            st.markdown(
+                "**Stats sourced from MaxPreps official season reports · 2015-16 through 2025-26.** "
+                "Career totals are aggregated from raw season data. "
+                "Rate stats (completion %, yards per carry, yards per catch) require minimum "
+                "career thresholds to qualify for leaderboards.\n\n"
+                "**Note:** A small number of players appear with truncated or ambiguous names "
+                "on MaxPreps. These are flagged for review by the coaching staff."
+            )
+
+        def fb_nc(lbl, fmt, **kw):
+            return st.column_config.NumberColumn(lbl, format=fmt, **kw)
+
+        FB_PASS_CC = {"Comp%": fb_nc("Comp%","%.1f"), "QB Rate": fb_nc("QB Rate","%.1f"),
+                      "Pass Y/G": fb_nc("Pass Y/G","%.1f")}
+        FB_RUSH_CC = {"Rush Avg": fb_nc("Rush Avg","%.1f"), "Rush Y/G": fb_nc("Rush Y/G","%.1f")}
+        FB_REC_CC  = {"Rec Avg": fb_nc("Rec Avg","%.1f"), "Rec Y/G": fb_nc("Rec Y/G","%.1f")}
+        FB_DEF_CC  = {"TFL": fb_nc("TFL","%.1f"), "Sacks": fb_nc("Sacks","%.1f")}
+
+        def fb_show(df, cc=None, **kw):
+            st.dataframe(df.reset_index(drop=True), use_container_width=True,
+                         hide_index=True, column_config=cc, **kw)
+
+        fb_tab1, fb_tab2, fb_tab3 = st.tabs([
+            "🏆  Career Leaderboards",
+            "📋  Season Records",
+            "🔍  Player Lookup",
+        ])
+
+        # ── Career Leaderboards ───────────────────────────────────────────────
+        with fb_tab1:
+            pass_t, rush_t, rec_t, def_t, sc_t = st.tabs([
+                "🏈 Passing", "🏃 Rushing", "🙌 Receiving", "🛡️ Defense", "🎯 Scoring"
+            ])
+
+            with pass_t:
+                st.caption("Minimum 30 career pass attempts to qualify · click any column header to sort")
+                lb = fb.get("Passing Leaders", pd.DataFrame())
+                if "Rank" in lb.columns: lb = lb.drop(columns=["Rank"])
+                fb_show(lb, FB_PASS_CC)
+
+            with rush_t:
+                st.caption("Minimum 30 career carries to qualify · click any column header to sort")
+                lb = fb.get("Rushing Leaders", pd.DataFrame())
+                if "Rank" in lb.columns: lb = lb.drop(columns=["Rank"])
+                fb_show(lb, FB_RUSH_CC)
+
+            with rec_t:
+                st.caption("Minimum 15 career receptions to qualify · click any column header to sort")
+                lb = fb.get("Receiving Leaders", pd.DataFrame())
+                if "Rank" in lb.columns: lb = lb.drop(columns=["Rank"])
+                fb_show(lb, FB_REC_CC)
+
+            with def_t:
+                st.caption("Minimum 10 career tackles to qualify · click any column header to sort")
+                lb = fb.get("Defense Leaders", pd.DataFrame())
+                if "Rank" in lb.columns: lb = lb.drop(columns=["Rank"])
+                fb_show(lb, FB_DEF_CC)
+
+            with sc_t:
+                st.caption("Career scoring leaders · click any column header to sort")
+                lb = fb.get("Scoring Leaders", pd.DataFrame())
+                if "Rank" in lb.columns: lb = lb.drop(columns=["Rank"])
+                fb_show(lb)
+
+        # ── Season Records ────────────────────────────────────────────────────
+        with fb_tab2:
+            st.caption("Best single-season performances by category")
+            sr_df = fb.get("Season Records", pd.DataFrame())
+            if not sr_df.empty:
+                # Season Records sheet has a custom layout — display as-is
+                st.dataframe(sr_df.reset_index(drop=True), use_container_width=True, hide_index=True)
+            else:
+                st.info("Season records not available.")
+
+        # ── Player Lookup ─────────────────────────────────────────────────────
+        with fb_tab3:
+            # Build player list from all career sheets
+            fb_career_sheets = ["Career Passing","Career Rushing","Career Receiving",
+                                 "Career Defense","Career Scoring"]
+            fb_player_frames = []
+            for sh in fb_career_sheets:
+                if sh in fb:
+                    df = fb[sh]
+                    if "Player" in df.columns and "GradYr" in df.columns:
+                        fb_player_frames.append(df[["Player","GradYr"]])
+
+            if fb_player_frames:
+                fb_all_pl = (pd.concat(fb_player_frames)
+                               .drop_duplicates()
+                               .sort_values("Player")
+                               .reset_index(drop=True))
+
+                def fb_pl_label(row):
+                    try:
+                        gy = int(row["GradYr"])
+                        return f"{row['Player']}  (Grad '{str(gy)[-2:]})"
+                    except:
+                        return str(row["Player"])
+
+                fb_option_map = {fb_pl_label(r): (r["Player"], r["GradYr"])
+                                 for _, r in fb_all_pl.iterrows()}
+
+                fb_sel = st.selectbox(
+                    "Search for a player:",
+                    list(fb_option_map.keys()),
+                    index=None,
+                    placeholder="Start typing a name…",
+                    key="fb_player_select",
+                )
+
+                if fb_sel:
+                    name, gy = fb_option_map[fb_sel]
+
+                    def fb_match(df):
+                        if "Player" not in df.columns: return pd.DataFrame()
+                        nm = df["Player"] == name
+                        if pd.isna(gy): return df[nm]
+                        try:
+                            return df[nm & (df["GradYr"].fillna(-1).astype(int) == int(gy))]
+                        except:
+                            return df[nm]
+
+                    gy_str = f"  ·  Grad '{str(int(gy))[-2:]}" if pd.notna(gy) else ""
+                    st.markdown(f"### {name}{gy_str}")
+                    st.markdown("---")
+
+                    season_map = {
+                        "Passing":   ("Season Passing",   FB_PASS_CC),
+                        "Rushing":   ("Season Rushing",   FB_RUSH_CC),
+                        "Receiving": ("Season Receiving", FB_REC_CC),
+                        "Defense":   ("Season Defense",   FB_DEF_CC),
+                        "Scoring":   ("Season Scoring",   {}),
+                    }
+                    career_map = {
+                        "Passing":   ("Career Passing",   FB_PASS_CC),
+                        "Rushing":   ("Career Rushing",   FB_RUSH_CC),
+                        "Receiving": ("Career Receiving", FB_REC_CC),
+                        "Defense":   ("Career Defense",   FB_DEF_CC),
+                        "Scoring":   ("Career Scoring",   {}),
+                    }
+
+                    found_any = False
+                    for label, (sheet, cc) in season_map.items():
+                        if sheet not in fb: continue
+                        rows = fb_match(fb[sheet])
+                        if rows.empty: continue
+                        found_any = True
+                        st.markdown(f"**Season {label}**")
+                        drop_cols = ["Player","Class","GradYr"]
+                        fb_show(rows.drop(columns=[c for c in drop_cols if c in rows.columns], errors="ignore"), cc)
+                        career_rows = fb_match(fb.get(career_map[label][0], pd.DataFrame()))
+                        if not career_rows.empty:
+                            st.markdown(f"**Career {label} Totals**")
+                            drop_cols2 = ["GradYr","Seasons"]
+                            fb_show(career_rows.drop(columns=[c for c in drop_cols2 if c in career_rows.columns], errors="ignore"), cc)
+
+                    if not found_any:
+                        st.info("No stats found for this player.")
 
 # ═════════════════════════════════════════════════════════════════════════════
 # 🥎  SOFTBALL  (fully live)
