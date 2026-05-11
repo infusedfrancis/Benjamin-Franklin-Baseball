@@ -419,15 +419,133 @@ with sport_tab_baseball:
 
 
 # ═════════════════════════════════════════════════════════════════════════════
-# 🏀  BOYS BASKETBALL  (coming soon)
+# 🏀  BOYS BASKETBALL  (fully live)
 # ═════════════════════════════════════════════════════════════════════════════
 with sport_tab_bball_boys:
-    st.markdown("""
-    <div class="coming-soon">
-      <h2>🏀 Boys Basketball</h2>
-      <p>Stats coming soon — data is being compiled now.</p>
-    </div>
-    """, unsafe_allow_html=True)
+
+    BB_EXCEL = "Franklin_Boys_Basketball_Stats.xlsx"
+
+    @st.cache_data
+    def load_boys_bball():
+        xl = pd.ExcelFile(BB_EXCEL)
+        return {name: pd.read_excel(xl, name, header=2) for name in xl.sheet_names}
+
+    try:
+        bb = load_boys_bball()
+        boys_bball_ok = True
+    except Exception as e:
+        st.error(f"Could not load boys basketball data: {e}")
+        boys_bball_ok = False
+
+    if boys_bball_ok:
+
+        with st.expander("ℹ️  About this data", expanded=False):
+            st.markdown(
+                "**Stats sourced from MaxPreps official season reports · 2017-18 through 2025-26.** "
+                "Career totals and rate statistics are recalculated from raw season data. "
+                "Data is not available for 2015-16 or 2016-17 on MaxPreps.\n\n"
+                "**Note:** Two different players appear as 'N. Lot' on MaxPreps (same class year, "
+                "same name abbreviation). Their stats are combined into a single career entry and "
+                "cannot be separated without full name data from MaxPreps. "
+                "Similarly, 'K. Mott' refers to two different players (Grad '21 and Grad '24), "
+                "correctly listed as separate career entries."
+            )
+
+        def bb_nc(lbl, fmt, **kw):
+            return st.column_config.NumberColumn(lbl, format=fmt, **kw)
+
+        BB_CC = {"PPG": bb_nc("PPG","%.1f"), "RPG": bb_nc("RPG","%.1f"),
+                 "APG": bb_nc("APG","%.1f"), "SPG": bb_nc("SPG","%.1f"),
+                 "FG%": bb_nc("FG%","%.1f"), "3P%": bb_nc("3P%","%.1f"),
+                 "FT%": bb_nc("FT%","%.1f"),
+                 **_int_cc("GP","G","PTS","Pts","REB","Reb","AST","Ast",
+                           "STL","Stl","BLK","Blk","FGM","FGA",
+                           "3PM","3PA","FTM","FTA","TO","PF","GradYr")}
+
+        def bb_show(df, cc=None, **kw):
+            st.dataframe(df.reset_index(drop=True), use_container_width=True,
+                         hide_index=True, column_config=cc, **kw)
+
+        bb_tab0, bb_tab1, bb_tab2, bb_tab3 = st.tabs([
+            "📊  Career Totals",
+            "🏆  Career Leaderboards",
+            "📋  Season Records",
+            "🔍  Player Lookup",
+        ])
+
+        with bb_tab0:
+            st.caption("All players · career cumulative totals · click any column header to sort")
+            tot = bb.get("Career Stats", pd.DataFrame()).copy()
+            if "Rank" in tot.columns: tot = tot.drop(columns=["Rank"])
+            bb_show(tot, BB_CC)
+
+        with bb_tab1:
+            st.caption("Minimum 20 career games played to qualify · click any column header to sort")
+            lb = bb.get("Leaderboard", pd.DataFrame()).copy()
+            if "Rank" in lb.columns: lb = lb.drop(columns=["Rank"])
+            bb_show(lb, BB_CC)
+
+        with bb_tab2:
+            st.caption("Best single-season performances · 2017-18 through 2025-26")
+            render_season_records_sheet(BB_EXCEL, "Season Records")
+
+        with bb_tab3:
+            bb_career = bb.get("Career Stats", pd.DataFrame())
+            if not bb_career.empty and "Player" in bb_career.columns:
+                bb_all_pl = (bb_career[["Player","GradYr"]]
+                               .drop_duplicates()
+                               .sort_values("Player")
+                               .reset_index(drop=True))
+
+                def bb_pl_label(row):
+                    try:
+                        gy = int(row["GradYr"])
+                        return f"{row['Player']}  (Grad '{str(gy)[-2:]})"
+                    except:
+                        return str(row["Player"])
+
+                bb_option_map = {bb_pl_label(r): (r["Player"], r["GradYr"])
+                                 for _, r in bb_all_pl.iterrows()}
+
+                bb_sel = st.selectbox(
+                    "Search for a player:",
+                    list(bb_option_map.keys()),
+                    index=None,
+                    placeholder="Start typing a name…",
+                    key="bb_player_select",
+                )
+
+                if bb_sel:
+                    name, gy = bb_option_map[bb_sel]
+
+                    def bb_match(df):
+                        if "Player" not in df.columns: return pd.DataFrame()
+                        nm = df["Player"] == name
+                        if pd.isna(gy): return df[nm]
+                        try:
+                            return df[nm & (df["GradYr"].fillna(-1).astype(int) == int(gy))]
+                        except:
+                            return df[nm]
+
+                    gy_str = f"  ·  Grad '{str(int(gy))[-2:]}" if pd.notna(gy) else ""
+                    st.markdown(f"### {name}{gy_str}")
+                    st.markdown("---")
+
+                    season_rows = bb_match(bb.get("Season Stats", pd.DataFrame()))
+                    career_rows = bb_match(bb_career)
+
+                    if not season_rows.empty:
+                        st.markdown("**Season Stats**")
+                        drop = [c for c in ["Player","GradYr"] if c in season_rows.columns]
+                        bb_show(season_rows.drop(columns=drop), BB_CC)
+
+                    if not career_rows.empty:
+                        st.markdown("**Career Totals**")
+                        drop = [c for c in ["GradYr","Seasons"] if c in career_rows.columns]
+                        bb_show(career_rows.drop(columns=drop), BB_CC)
+
+                    if season_rows.empty and career_rows.empty:
+                        st.info("No stats found for this player.")
 
 # ═════════════════════════════════════════════════════════════════════════════
 # 🏀  GIRLS BASKETBALL  (fully live)
@@ -1018,6 +1136,6 @@ st.markdown("---")
 st.caption(
     "Stats sourced from MaxPreps official season reports  ·  "
     "Career totals and rate stats recalculated from raw season data  ·  "
-    "2019-20 baseball season COVID-shortened (8 games)  ·  "
+    "2019-20 baseball and softball seasons COVID-shortened  ·  "
     "Benjamin Franklin High School, Queen Creek AZ"
 )
