@@ -50,10 +50,22 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ── Hero ──────────────────────────────────────────────────────────────────────
-col_logo, col_title = st.columns([1, 5])
-with col_logo:
-    st.image("BFHS_logo.jpeg", width=110)
-with col_title:
+import os as _os
+_logo_files = ["BFHS_Logo.jpeg", "BFHS_Logo.jpg", "BFHS_logo.jpeg", "BFHS_logo.jpg", "BFHS logo.jpeg", "BFHS logo.jpg"]
+_logo = next((f for f in _logo_files if _os.path.exists(f)), None)
+
+if _logo:
+    col_logo, col_title = st.columns([1, 5])
+    with col_logo:
+        st.image(_logo, width=110)
+    with col_title:
+        st.markdown("""
+        <div class="hero">
+          <h1>Benjamin Franklin Chargers Athletics</h1>
+          <p>All-time player statistics &nbsp;·&nbsp; Queen Creek, AZ &nbsp;·&nbsp; 3A Conference</p>
+        </div>
+        """, unsafe_allow_html=True)
+else:
     st.markdown("""
     <div class="hero">
       <h1>Benjamin Franklin Chargers Athletics</h1>
