@@ -50,12 +50,16 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ── Hero ──────────────────────────────────────────────────────────────────────
-st.markdown("""
-<div class="hero">
-  <h1>🏆 Benjamin Franklin Chargers Athletics</h1>
-  <p>All-time player statistics &nbsp;·&nbsp; Queen Creek, AZ &nbsp;·&nbsp; 3A Conference</p>
-</div>
-""", unsafe_allow_html=True)
+col_logo, col_title = st.columns([1, 5])
+with col_logo:
+    st.image("BFHS_logo.jpeg", width=110)
+with col_title:
+    st.markdown("""
+    <div class="hero">
+      <h1>Benjamin Franklin Chargers Athletics</h1>
+      <p>All-time player statistics &nbsp;·&nbsp; Queen Creek, AZ &nbsp;·&nbsp; 3A Conference</p>
+    </div>
+    """, unsafe_allow_html=True)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # SPORT SELECTOR
